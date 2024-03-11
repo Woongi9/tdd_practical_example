@@ -1,5 +1,7 @@
 package com.tdd.practical.entity;
 
+import com.tdd.practical.entity.common.CommonEntity;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -14,7 +16,7 @@ import lombok.NoArgsConstructor;
 @Getter
 @Entity
 @NoArgsConstructor
-public class Review {
+public class Review extends CommonEntity {
 	@Id
 	@GeneratedValue
 	long id;

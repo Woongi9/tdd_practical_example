@@ -2,6 +2,8 @@ package com.tdd.practical.entity;
 
 import java.util.List;
 
+import com.tdd.practical.entity.common.CommonEntity;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -15,11 +17,7 @@ import lombok.NoArgsConstructor;
 @Getter
 @Entity
 @NoArgsConstructor
-public class Users {
-
-	@Id
-	@GeneratedValue
-	private Long id;
+public class Users extends CommonEntity {
 
 	@Column
 	private String name;

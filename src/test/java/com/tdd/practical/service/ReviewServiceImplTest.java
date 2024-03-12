@@ -43,7 +43,7 @@ class ReviewServiceImplTest {
 	@InjectMocks
 	ReviewServiceImpl reviewService;
 
-	Users getUser(String name, long id) {
+	static Users getUser(String name, long id) {
 		Users user = Users.builder()
 			.name(name)
 			.build();
@@ -93,8 +93,10 @@ class ReviewServiceImplTest {
 	}
 
 	private static Post getPost(Users user, String title) {
+		List<Review> reviewList = new ArrayList<>();
 		Post post1 = Post.builder()
 			.title(title)
+			.reviewList(reviewList)
 			.users(user)
 			.build();
 		return post1;
@@ -116,6 +118,20 @@ class ReviewServiceImplTest {
 			.category(category)
 			.build();
 		return mapCategoryAndPost1;
+	}
+
+	private static List<Review> getReviewList() {
+		Users user1 = getUser("user1", 2L);
+		Users user2 = getUser("user2", 2L);
+
+		Post post1 = getPost(user1, "Post1 제목");
+		Post post2 = getPost(user2, "Post2 제목");
+
+		List<Review> reviewList = new ArrayList<>();
+		reviewList.add(getReview(post1, user1, "새로운 리뷰", "새로운 내용"));
+		reviewList.add(getReview(post2, user2, "review2", "이게 글이지2222"));
+
+		return reviewList;
 	}
 
 	@Test
@@ -195,12 +211,15 @@ class ReviewServiceImplTest {
 		long categoryId = 1L;
 		ReviewToCategoryDTO reviewToCategoryDTO = ReviewToCategoryDTO.builder()
 			.userId(userId)
+			.title("새로운 리뷰")
+			.content("새로운 내용")
 			.categoryId(categoryId)
 			.build();
 
 		given(userRepository.findById(any(Long.class))).willReturn(Optional.of(getUser("유저1", 1L)));
 		given(categoryRepository.findById(any(Long.class))).willReturn(Optional.of(getCategory(1L)));
 		given(mapCategoryAndPostRepository.getByCategory(any(Category.class))).willReturn(getMapCategoryAndPostList());
+		given(reviewRepository.saveAll(any(List.class))).willReturn(getReviewList());
 
 		// when
 		ResponseEntity<?> responseEntity = reviewService.createReviewForCategory(reviewToCategoryDTO);

@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -32,6 +33,7 @@ public class ReviewServiceImpl implements ReviewService {
 	private final ReviewRepository reviewRepository;
 	private final CategoryRepository categoryRepository;
 	private final MapCategoryAndPostRepository mapCategoryAndPostRepository;
+	private static final int STUDY_CATEGORY_ID = 1;
 
 	@Override
 	@Transactional
@@ -41,46 +43,67 @@ public class ReviewServiceImpl implements ReviewService {
 		Category category = categoryRepository.findById(reviewToCategoryDTO.getCategoryId()).orElseThrow(() ->
 			new IllegalArgumentException("category가 없습니다. categoryId=" + reviewToCategoryDTO.getCategoryId()));
 
-		int reviewCount = 0;
-		List<Review> reviewList = new ArrayList<>();
-		if (category.getId() == 1) {
-			List<MapCategoryAndPost> mapCategoryAndPostList = mapCategoryAndPostRepository.getByCategory(category);
-			for (MapCategoryAndPost mapCategoryAndPost : mapCategoryAndPostList) {
-				Review reviewBuilder = Review.builder()
-					.title(reviewToCategoryDTO.getTitle())
-					.content(reviewToCategoryDTO.getContent())
-					.users(users)
-					.build();
-				Post post = mapCategoryAndPost.getPost();
-				List<Review> postReviewList = post.getReviewList();
-				postReviewList.add(reviewBuilder);
-				post.updateReview(postReviewList);
-				postRepository.save(post);
-				Review savedReview = reviewRepository.save(reviewBuilder);
-				reviewList.add(savedReview);
-				reviewCount++;
-			}
-		} else {
-			List<MapCategoryAndPost> mapCategoryAndPostList = mapCategoryAndPostRepository.getByCategory(category);
-			MapCategoryAndPost mapCategoryAndPost = mapCategoryAndPostList.get(0);
-			Review reviewBuilder = Review.builder()
-				.title(reviewToCategoryDTO.getTitle())
-				.content(reviewToCategoryDTO.getContent())
-				.users(users)
-				.build();
-			Post post = mapCategoryAndPost.getPost();
-			List<Review> postReviewList = post.getReviewList();
-			postReviewList.add(reviewBuilder);
-			post.updateReview(postReviewList);
-			postRepository.save(post);
-			Review savedReview = reviewRepository.save(reviewBuilder);
-			reviewList.add(savedReview);
-			reviewCount++;
-		}
+		List<Review> reviewList = getReviewList(reviewToCategoryDTO, category, users);
 
 		Map<String, Object> responseMap = new HashMap<>();
-		responseMap.put("reviewCount", reviewCount);
+		responseMap.put("reviewCount", reviewList.size());
 		responseMap.put("reviewList", reviewList);
 		return ResponseEntity.ok().body(responseMap);
+	}
+
+	private List<Review> getReviewList(ReviewToCategoryDTO reviewToCategoryDTO, Category category, Users users) {
+		List<Review> reviewList = new ArrayList<>();
+		List<MapCategoryAndPost> mapCategoryAndPostList = mapCategoryAndPostRepository.getByCategory(category);
+		if (isStudyCategory(category)) {
+			reviewList.addAll(
+				reviewRepository.saveAll(getReviewBuilderList(reviewToCategoryDTO, mapCategoryAndPostList, users)));
+			postRepository.saveAll(getPostList(reviewList));
+		} else {
+			MapCategoryAndPost mapCategoryAndPost = mapCategoryAndPostList.get(0);
+			Review savedReview = reviewRepository.save(getReview(reviewToCategoryDTO, mapCategoryAndPost, users));
+			reviewList.add(savedReview);
+			postRepository.save(getUpdatedReviewListPost(mapCategoryAndPost.getPost(), savedReview));
+		}
+		return reviewList;
+	}
+
+	private static boolean isStudyCategory(Category category) {
+		return category.getId() == STUDY_CATEGORY_ID;
+	}
+
+	private static List<Review> getReviewBuilderList(ReviewToCategoryDTO reviewToCategoryDTO,
+		List<MapCategoryAndPost> mapCategoryAndPostList, Users users) {
+		List<Review> reviewBuilderList = new ArrayList<>();
+		for (MapCategoryAndPost mapCategoryAndPost : mapCategoryAndPostList) {
+			reviewBuilderList.add(getReview(reviewToCategoryDTO, mapCategoryAndPost, users));
+		}
+		return reviewBuilderList;
+	}
+
+	private static Review getReview(ReviewToCategoryDTO reviewToCategoryDTO, MapCategoryAndPost mapCategoryAndPost,
+		Users users) {
+		Review reviewBuilder = Review.builder()
+			.title(reviewToCategoryDTO.getTitle())
+			.content(reviewToCategoryDTO.getContent())
+			.post(mapCategoryAndPost.getPost())
+			.users(users)
+			.build();
+		return reviewBuilder;
+	}
+
+	private static List<Post> getPostList(List<Review> reviewList) {
+		List<Post> postList = new ArrayList<>();
+		for (Review review : reviewList) {
+			postList.add(getUpdatedReviewListPost(review.getPost(), review));
+		}
+		return postList;
+	}
+
+	private static Post getUpdatedReviewListPost(Post mapCategoryAndPost, Review savedReview) {
+		Post post = mapCategoryAndPost;
+		List<Review> postReviewList = post.getReviewList();
+		postReviewList.add(savedReview);
+		post.updateReview(postReviewList);
+		return post;
 	}
 }
